@@ -1,0 +1,30 @@
+version: "2.1"
+services:
+  vscode:
+    image: lscr.io/linuxserver/code-server:latest
+    container_name: code-server
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/London
+      - DOCKER_USER=USERNAME
+      - PASSWORD=SECRET
+      - SUDO_PASSWORD=SUPER_SECRET
+      - PROXY_DOMAIN=vscode.${DOMAIN_URL} #optional
+      - DEFAULT_WORKSPACE=/config/workspace #optional
+    volumes:
+      - ./.config:/config
+    networks:
+      - traefik_web
+    restart: unless-stopped
+    labels:
+      traefik.enable: true
+      traefik.docker.network: traefik_web
+      traefik.http.routers.vscode.entrypoints: websecure
+      traefik.http.routers.vscode.rule: 'Host(`vscode.${DOMAIN_URL}`)'
+      traefik.http.services.vscode.loadbalancer.server.port: 8443
+
+
+networks:
+  traefik_web:
+    external: true

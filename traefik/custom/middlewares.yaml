@@ -1,0 +1,18 @@
+http:
+  middlewares:
+    SecHeaders:
+      headers:
+        #frameDeny: true
+        #customFrameOptionsValue: "SAMEORIGIN"
+        accessControlAllowOriginList:
+          - https://yourdomain
+        contentTypeNosniff: true
+        browserXssFilter: true
+        forceSTSHeader: true
+        stsIncludeSubdomains: true
+        stsSeconds: 31536000
+
+    test-ratelimit:
+      rateLimit:
+        average: 100
+        burst: 50

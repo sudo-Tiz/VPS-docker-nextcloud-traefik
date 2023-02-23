@@ -1,0 +1,14 @@
+version: "2.2"
+services:
+  fail2ban:
+    image: lscr.io/linuxserver/fail2ban:latest
+    container_name: fail2ban
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    network_mode: host
+    volumes:
+      - ./config:/config
+      - /var/log:/var/log:ro
+      - /path/to/nextcloud/log:/remotelogs/nextcloud:ro #optional
+    restart: unless-stopped

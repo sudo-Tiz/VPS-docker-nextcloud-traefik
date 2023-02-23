@@ -1,0 +1,173 @@
+version: '3.7'
+services:
+
+
+  redis:
+    container_name: nc_redis
+    image: redis:alpine
+    restart: unless-stopped
+    networks:
+      - lan
+    volumes:
+      - redis:/data
+
+
+
+  database:
+    container_name: nc_db
+    image: mariadb
+    command: --transaction-isolation=READ-COMMITTED --binlog-format=ROW
+    restart: unless-stopped
+    environment:
+      MYSQL_RANDOM_ROOT_PASSWORD: 'yes'
+      MYSQL_USER_FILE: '/run/secrets/mysql-user'
+      MYSQL_DATABASE_FILE: '/run/secrets/mysql-database'
+      MYSQL_PASSWORD_FILE: '/run/secrets/mysql-password'
+    secrets:
+      - mysql-user
+      - mysql-database
+      - mysql-password
+    networks:
+      - lan
+    volumes:
+      - db:/var/lib/mysql
+     # - ./db-logs:/var/log/mysql #TODO link it to filebeat
+
+
+#  db-backup:
+#    image: fradelg/mysql-cron-backup
+#    depends_on:
+#      - db
+#    volumes:
+#      - ./data/backup:/backup
+#    environment:
+#      - MYSQL_HOST=db
+#      - MYSQL_USER=root
+#      - MYSQL_PASS=${MYSQL_ROOT_PASSWORD}
+#      - MYSQL_DB=${MYSQL_DATABASE}
+#      - MAX_BACKUPS=15
+#      - INIT_BACKUP=0
+#      - CRON_TIME=0 3 * * *
+#      - GZIP_LEVEL=9
+#    restart: unless-stopped
+
+  nextcloud:
+    container_name: nextcloud
+    depends_on:
+      - database
+      - redis
+    image: nextcloud
+    restart: unless-stopped
+    environment:
+      MYSQL_HOST: 'database'
+      MYSQL_DATABASE_FILE: '/run/secrets/mysql-database'
+      MYSQL_USER_FILE: '/run/secrets/mysql-user'
+      MYSQL_PASSWORD_FILE: '/run/secrets/mysql-password'
+      LOG_LEVEL: info #? don't work ?
+      NEXTCLOUD_ADMIN_PASSWORD: '/run/secrets/nextcloud-admin-password'
+      NEXTCLOUD_ADMIN_USER: '/run/secrets/nextcloud-admin-user'
+      NEXTCLOUD_TRUSTED_DOMAINS: nextcloud.${DOMAIN_URL}
+      NEXTCLOUD_DATA_DIR : '/var/www/data'
+
+    #USELESS
+      #TRUSTED_PROXIES: '127.0.0.1'
+      #OVERWRITEHOST: nextcloud.${DOMAIN_URL}
+      #OVERWRITEPROTOCOL: 'https'
+
+      PHP_MEMORY_LIMIT: 1024M
+      PHP_UPLOAD_LIMIT: 4048M
+      REDIS_HOST: 'redis'
+    command: "bash -c '{ echo 'opcache.enable=1'; echo 'opcache.interned_strings_buffer=32'; echo 'opcache.max_accelerated_files=15000'; echo 'opcache.memory_consumption=256'; echo 'opcache.save_comments=1'; echo 'opcache.revalidate_freq=1'; echo 'opcache.validate_timestamps=0'; echo 'opcache.fast_shutdown=1'; } > /usr/local/etc/php/conf.d/opcache-recommended.ini; apache2-foreground' "
+    secrets:
+      - mysql-user
+      - mysql-database
+      - mysql-password
+      - nextcloud-admin-password
+      - nextcloud-admin-user
+    networks:
+      - lan
+      - traefik_web
+    volumes:
+      - html:/var/www/html
+      - DATA_FOLDER:/var/www/data
+      #TODO change logs dir
+
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_web"
+      - "traefik.http.routers.nextcloud.entrypoints=websecure"
+      - "traefik.http.routers.nextcloud.tls=true"
+      - "traefik.http.routers.nextcloud.rule=Host(`nextcloud.${DOMAIN_URL}`)"
+      - "traefik.http.routers.nextcloud.middlewares=nc-rep,nc-header"
+      - "traefik.http.middlewares.nc-rep.redirectregex.regex=https://(.*)/.well-known/(card|cal)dav"
+      - "traefik.http.middlewares.nc-rep.redirectregex.replacement=https://$$1/remote.php/dav/"
+      - "traefik.http.middlewares.nc-rep.redirectregex.permanent=true"
+      #- "traefik.http.middlewares.nc-header.headers.frameDeny=true"
+      - "traefik.http.middlewares.nc-header.headers.sslRedirect=true"
+      - "traefik.http.middlewares.nc-header.headers.contentTypeNosniff=true"
+      - "traefik.http.middlewares.nc-header.headers.stsIncludeSubdomains=true"
+      - "traefik.http.middlewares.nc-header.headers.stsPreload=true"
+      - "traefik.http.middlewares.nc-header.headers.stsSeconds=31536000"
+      - "traefik.http.middlewares.nc-header.headers.referrerPolicy=same-origin"
+      - "traefik.http.middlewares.nc-header.headers.browserXssFilter=true"
+      - "traefik.http.middlewares.nc-header.headers.customRequestHeaders.X-Forwarded-Proto=https"
+      - "traefik.http.middlewares.nc-header.headers.customResponseHeaders.X-Robots-Tag=none"
+      - "traefik.http.middlewares.nc-header.headers.customFrameOptionsValue=SAMEORIGIN" #! doesn't seem to work
+
+
+
+
+
+
+  collabora:
+    container_name: collabora
+    image: collabora/code
+    restart: unless-stopped
+    environment:
+      aliasgroup1 : https://nextcloud.${DOMAIN_URL}:443
+      extra_params: --o:ssl.enable=false  --o:ssl.termination=true
+      #username: ${COLLABORA_ADMIN_USER:-} #optional
+      #password: ${COLLABORA_ADMIN_PASSWORD:-} #optional
+    networks:
+      - traefik_web
+    labels:
+      traefik.enable: true
+      traefik.docker.network: traefik_web
+      traefik.http.routers.collabora.entrypoints: websecure
+      traefik.http.routers.collabora.rule: 'Host(`collabora.${DOMAIN_URL}`)'
+      traefik.http.services.collabora.loadbalancer.server.port: 9980
+      traefik.http.routers.collabora.middlewares: SecHeaders@file
+
+
+
+
+
+
+
+
+volumes:
+  db:
+  html:
+  redis:
+
+networks:
+  traefik_web:
+    external: true
+
+  lan:
+
+secrets:
+  mysql-user:
+    file: ./secrets/mysql-user.txt
+
+  mysql-database:
+    file: ./secrets/mysql-database.txt
+
+  mysql-password:
+    file: ./secrets/mysql-password.txt
+
+  nextcloud-admin-password:
+    file: ./secrets/nextcloud-admin-password.txt
+
+  nextcloud-admin-user:
+    file: ./secrets/nextcloud-admin-user.txt

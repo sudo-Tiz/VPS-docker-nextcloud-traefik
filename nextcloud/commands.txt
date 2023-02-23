@@ -1,0 +1,11 @@
+when image could't load beacause they are too fat
+sudo docker-compose exec --user www-data nextcloud ./occ files:scan-app-data
+ through "occ preview:generate-all -vvv", and then through a job in the cron - "occ preview:pre-generate -vvv". For 95% of the images, everything is generated. But for large photos this method does not work.
+
+
+#! sudo crontab -e
+30 3 * * *  /root/backup-script.sh BACKUP_FOLDER/ DATA_FOLDER
+*/5 * * * * docker exec -t -u www-data nextcloud php -f /var/www/html/cron.php
+0 5 * * * docker exec --user www-data nextcloud php occ files:scan --all
+0 5 * * * docker exec --user www-data nextcloud php occ files:scan-app-data
+0 5 * * * docker exec --user www-data nextcloud php occ preview:pre-generate

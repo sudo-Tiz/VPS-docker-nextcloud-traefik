@@ -1,0 +1,76 @@
+version: '3.7'
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.0
+    container_name: elasticsearch
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    environment:
+      - ELASTIC_USERNAME=elastic
+      - ELASTIC_PASSWORD=${ELASTICSEARCH_PASSWORD}
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - discovery.type=single-node
+      - transport.host=localhost
+      - transport.tcp.port=9300
+      - http.port=9200
+      - http.host=0.0.0.0
+      - xpack.security.enabled=true
+      - xpack.license.self_generated.type=trial
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    networks:
+      - monitoring
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.17.0
+    container_name: kibana
+
+    environment:
+      ELASTICSEARCH_HOSTS: 'http://ELASTICSEARCH:9200'
+      ELASTICSEARCH_USERNAME: 'elastic'
+      ELASTICSEARCH_PASSWORD: '${ELASTICSEARCH_PASSWORD}'
+      XPACK_MONITORING_ENABLED: 'false'
+      XPACK_SECURITY_ENABLED: 'true'
+      SERVER_PUBLICBASEURL: "http://192.168.123.3:5601/"  #"https://monitoring.${DOMAIN_URL}"
+    networks:
+      monitoring :
+      #- traefik_web
+      wireguard_VPN :
+        ipv4_address: 192.168.123.3
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:7.17.0
+    container_name: filebeat
+    user: root
+    volumes:
+      - VPS/traefik/logs:/var/log/traefik/:ro
+      - filebeat_data:/usr/share/filebeat/data
+      - ./config/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/log/:/var/log/SERVER/:ro
+      - nextcloud.log:/var/log/nextcloud/nextcloud.log:ro
+
+      #- /var/run/docker.sock:/var/run/docker.sock
+      #- /var/lib/docker/containers/:/var/lib/docker/containers/:ro
+    networks:
+      - monitoring
+
+#  logstash:
+#    image: docker.elastic.co/logstash/logstash:7.17.0
+#    container_name: logstash
+#    volumes:
+#      - ./config/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
+#    networks:
+#      - monitoring
+
+volumes:
+  es_data:
+  filebeat_data:
+
+networks:
+  monitoring:
+  #traefik_web:
+  #  external: true
+  wireguard_VPN:
+    external: true

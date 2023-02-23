@@ -1,0 +1,70 @@
+metricbeat.config:
+  #  modules:
+  #  path: ${path.config}/modules.d/*.yml
+  #    reload.enabled: true
+
+setup.kibana:
+  host: "kibana:5601"
+
+
+output.elasticsearch:
+  hosts: ["elasticsearch:9200"]
+
+
+setup.dashboards.enabled: true
+
+
+metricbeat.autodiscover:
+  providers:
+    - type: docker
+      hints.enabled: true
+
+metricbeat.modules:
+#########PROMETHEUS#########
+- module: prometheus
+  period: 10s
+  hosts: [""] #Ici l'on met l'adresse de l'API traefik
+  metrics_path: /metrics
+###########DOCKER###########
+- module: docker
+  metricsets:
+    - "container"
+    - "cpu"
+    - "diskio"
+    - "healthcheck"
+    - "info"
+    - "image"
+    - "memory"
+    - "network"
+  hosts: ["unix:///var/run/docker.sock"]
+  period: 10s
+  enabled: true
+###########SYSTEM###########
+- module: system
+  metricsets:
+    - cpu             # CPU usage
+    - load            # CPU load averages
+    - memory          # Memory usage
+    - network         # Network IO
+    - process         # Per process metrics
+    - process_summary # Process summary
+    - socket_summary  # Socket summary
+    - core           # Per CPU core usage
+    - diskio         # Disk IO
+    - filesystem     # File system usage for each mountpoint
+    - fsstat         # File system summary metrics
+    - socket         # Sockets and connection info (linux only)
+    - service        # systemd service information
+  enabled: true
+  period: 10s
+  processes: ['.*']
+  # Configure the metric types that are included by these metricsets.
+  cpu.metrics:  ["percentages"]  # The other available options are normalized_percentages and ticks.
+  core.metrics: ["percentages"]  # The other available option is ticks.
+  # These options allow you to filter out all processes that are not
+  # in the top N by CPU or memory, in order to reduce the number of documents created.
+  # If both the `by_cpu` and `by_memory` options are used, the union of the two sets
+  # is included.
+  process.include_top_n:
+    # Set to false to disable this feature and include all processes
+    enabled: true

@@ -1,0 +1,52 @@
+version: '3.7'
+services:
+  mongo:
+    image: mongo:4.4
+    container_name: mongo
+    restart: unless-stopped
+    command: mongod --oplogSize 128 --replSet rs0
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - lan
+    
+  mongo-init-replica:
+    image: mongo:4.4
+    container_name: mongo_replica
+    restart: on-failure
+    command: 'mongo mongo/rocketchat --eval "printjson(rs.initiate())"'
+    depends_on:
+      - mongo
+    networks:
+      - lan
+
+
+  rocket:
+    image: rocket.chat:latest
+    depends_on:
+      - mongo
+    container_name: rocket
+    restart: unless-stopped
+    environment:
+      - PORT=3000
+      - ROOT_URL=https://rocket.${DOMAIN_URL}
+      - MONGO_URL=mongodb://mongo:27017/rocketchat
+      - MONGO_OPLOG_URL=mongodb://mongo:27017/local?replSet=rs0
+    labels:
+      traefik.enable: true
+      traefik.docker.network: traefik_web
+      traefik.http.routers.collabora.entrypoints: websecure
+      traefik.http.routers.collabora.rule: 'Host(`rocket.${DOMAIN_URL}`)'
+      traefik.http.services.collabora.loadbalancer.server.port: 3000
+
+    networks:
+      - lan
+      - traefik_web
+    
+volumes:
+  mongodb_data:
+
+networks:
+  lan:
+  traefik_web:
+    external: true

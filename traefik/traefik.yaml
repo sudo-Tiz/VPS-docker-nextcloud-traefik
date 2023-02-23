@@ -1,0 +1,62 @@
+entryPoints:
+  web:
+    address: :80
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+
+  websecure:
+    address: :443
+    http:
+      tls:
+        certResolver: myresolver
+      middlewares:
+      - SecHeaders@file
+
+
+
+
+accessLog:
+  filePath: /var/log/access.log
+  format: common
+  fields:
+    defaultMode: keep
+    names:
+      defaultMode: keep
+    headers:
+      defaultMode: keep
+
+#  format: json
+#  bufferingSize: 100
+#  fields:
+#    defaultMode: keep
+#    headers:
+#      defaultMode: keep
+#      names:
+#        X-Forwarded-For: keep
+
+Log:
+  filePath: /var/log/traefik.log
+  level : "INFO"
+
+
+
+
+
+providers:
+  docker:
+    endpoint: "tcp://dockerproxy:2375"
+    #exposedByDefault: false
+
+  file:
+    directory: /etc/traefik/custom/
+    watch: true
+
+certificatesResolvers:
+  myresolver:
+    acme:
+      email: "mail"
+      storage: "/letsencrypt/acme.json"
+      tlsChallenge: {}

@@ -1,0 +1,22 @@
+version: '3.7'
+services:
+  sonarr:
+    image: linuxserver/sonarr:latest
+    container_name: sonarr
+    restart: unless-stopped
+    networks:
+      - traefik_network
+    volumes:
+      - ./config:/config
+      - ./downloads:/downloads
+      - ./tv:/tv
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_web"
+      - "traefik.http.routers.sonarr.entrypoints=websecure"
+      - "traefik.http.routers.sonarr.rule=Host(`sonarr.${DOMAIN_URL}`)"
+      - "traefik.http.services.sonarr.loadbalancer.server.port=8989"
+
+networks:
+  traefik_network:
+    external: true

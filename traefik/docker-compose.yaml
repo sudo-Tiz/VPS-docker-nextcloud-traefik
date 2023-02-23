@@ -1,0 +1,53 @@
+version: "3.7"
+services:
+
+
+  dockerproxy:
+    image: tecnativa/docker-socket-proxy
+    networks:
+      - socket_docker
+    environment:
+      - CONTAINERS=1
+    #ports:
+    #  - 127.0.0.1:2375:2375
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+
+
+
+  reverse_proxy:
+    image: traefik:latest
+    restart: unless-stopped
+    security_opt:
+    - no-new-privileges:true
+    depends_on:
+      - dockerproxy
+    ports:
+      - target: 443
+        published: 443
+        mode: host
+    volumes:
+      # So that Traefik can listen to the Docker events
+      #Replaced by docker socket proxy and network
+      #- /var/run/docker.sock:/var/run/docker.sock
+      
+      # traefik static configuration
+      - ./traefik.yaml:/etc/traefik/traefik.yaml:ro
+      # custom folder with dynamic configuration
+      - ./custom:/etc/traefik/custom:ro
+      # ssl volumes to store acme.json
+      - certs:/letsencrypt
+      - ./logs:/var/log/
+    networks:
+      - web
+      - socket_docker
+
+
+volumes:
+  certs:
+  logs:
+
+networks:
+  web:
+    name: traefik_web
+  socket_docker:
