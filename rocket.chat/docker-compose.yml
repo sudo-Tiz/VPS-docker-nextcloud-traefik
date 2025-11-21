@@ -1,7 +1,7 @@
 version: '3.7'
 services:
   mongo:
-    image: mongo:4.4
+    image: mongo:8.2
     container_name: mongo
     restart: unless-stopped
     command: mongod --oplogSize 128 --replSet rs0
@@ -11,7 +11,7 @@ services:
       - lan
     
   mongo-init-replica:
-    image: mongo:4.4
+    image: mongo:8.2
     container_name: mongo_replica
     restart: on-failure
     command: 'mongo mongo/rocketchat --eval "printjson(rs.initiate())"'
