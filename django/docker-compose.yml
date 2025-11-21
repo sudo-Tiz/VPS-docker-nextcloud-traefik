@@ -26,7 +26,7 @@ services:
       - traefik_web
       - lan
   db:
-    image: postgres:13-alpine
+    image: postgres:18-alpine
     volumes:
       - postgres_django_data:/var/lib/postgresql/data/
     environment:
