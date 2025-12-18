@@ -24,7 +24,7 @@ services:
       - monitoring
 
   kibana:
-    image: docker.elastic.co/kibana/kibana:7.17.0
+    image: docker.elastic.co/kibana/kibana:9.2.3
     container_name: kibana
 
     environment:
